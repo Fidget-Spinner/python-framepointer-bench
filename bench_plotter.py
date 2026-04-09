@@ -16,12 +16,19 @@ import matplotlib
 
 
 COMPARISONS_ALL = [
+    ("macOS M2", "diego/macmini-base.json", "diego/macmini-head.json"),
     ("macOS M3Pro", "savannah/aarch64_macos/baseline-darwin-jones.json", "savannah/aarch64_macos/fp-darwin-jones.json"),
     ("Debian RPi5", "savannah/aarch64_linux/baseline-linux-blueberry.json", "savannah/aarch64_linux/fp-linux-blueberry.json"),
-    ("Ubuntu i712700H", "kenjin/x86_64/2026-04-05_19-10-frame-pointers-baseline.json", "kenjin/x86_64/2026-04-05_19-27-frame-pointers-fp.json"),
+    ("Ubuntu Ampere Altra Max", "diego/altramax-base.json", "diego/altramax-head.json"),
+    ("Ubuntu AWS Graviton c7g.16xlarge", "diego/graviton3-base.json", "diego/graviton3-head.json"),
+    ("Ubuntu Intel i7-12700H", "kenjin/x86_64/2026-04-05_19-10-frame-pointers-baseline.json", "kenjin/x86_64/2026-04-05_19-27-frame-pointers-fp.json"),    
+    ("Ubuntu AMD EPYC 9654", "diego/epyc-base.json", "diego/epyc-head.json"),
+    ("Ubuntu Intel Xeon Platinum 8480", "diego/platinum-base.json", "diego/platinum-head.json"),
 ]
 
-# Misisng on some of the results
+AARCH64_COUNT = 5
+
+# Missing on some of the results
 EXCLUDED = {
     'async_tree_eager',
     'async_tree_eager_cpu_io_mixed',
@@ -131,11 +138,13 @@ def plot_diff_pair(ax, data):
     len_plots = len(bplot['boxes'])
     for i in range(len_plots):
         ax.plot(i+1, geo_mean(medians_all[i]),marker='o', color='green', markersize=4, label='Geometric Mean')
-        if i % 2:
+        if i >= AARCH64_COUNT:
             bplot['boxes'][i].set_facecolor('lightgrey')
         else:
             bplot['boxes'][i].set_facecolor('white')
 
+    ax.legend([bplot["boxes"][0], bplot["boxes"][AARCH64_COUNT]], ['AArch64', 'x86-64'], loc='upper left')
+    
     return all_data
     
 
@@ -171,4 +180,4 @@ if __name__ == "__main__":
     for name, base, changed in COMPARISONS_ALL:
         combined = get_combined_data(BenchmarkData(Path(base)).get_timing_data(), BenchmarkData(Path(changed)).get_timing_data())
         everything.append(combined)
-    plot_diff(everything, "fp_perf_over_baseline.png")
+    plot_diff(everything, "fp_perf_over_baseline.svg")
