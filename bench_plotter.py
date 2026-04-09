@@ -123,7 +123,6 @@ def plot_diff_pair(ax, data):
         medians = []
         for i, (name, values, median) in enumerate(config):
             medians.append(median)
-        print(f"{np.median(medians):.2f}")
         medians_all.append(medians)
 
     bplot = ax.boxplot(
@@ -138,6 +137,7 @@ def plot_diff_pair(ax, data):
     len_plots = len(bplot['boxes'])
     for i in range(len_plots):
         ax.plot(i+1, geo_mean(medians_all[i]),marker='o', color='green', markersize=4, label='Geometric Mean')
+        print(f"{1/geo_mean(medians_all[i]):.3f}")
         if i >= AARCH64_COUNT:
             bplot['boxes'][i].set_facecolor('lightgrey')
         else:
