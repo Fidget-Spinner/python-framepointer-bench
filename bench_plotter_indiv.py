@@ -14,7 +14,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
 
-
 COMPARISONS_ALL = [
     ("macOS M3Pro", "savannah/aarch64_macos/baseline-darwin-jones.json", "savannah/aarch64_macos/fp-darwin-jones.json"),
     ("Debian RPi5", "savannah/aarch64_linux/baseline-linux-blueberry.json", "savannah/aarch64_linux/fp-linux-blueberry.json"),
@@ -56,30 +55,23 @@ BENCH_NAMES = [
 
 BENCH_NAMES = [x for x in BENCH_NAMES if x not in EXCLUDED]
 
-print(len(BENCH_NAMES))
-
-# Source: https://stackoverflow.com/questions/43099542/python-easy-way-to-do-geometric-mean-in-python
-def geo_mean(iterable):
-    a = np.array(iterable)
-    return a.prod()**(1.0/len(a))
-
 def get_combined_data(
     ref_data: dict[str, np.ndarray], head_data: dict[str, np.ndarray]
-) -> list:
+) -> dict:
 
     def calculate_diffs(ref_values, head_values) -> tuple[np.ndarray | None, float]:
         values = np.outer(ref_values, 1.0 / head_values).flatten()
         values.sort()
-        return values, float(np.median(values))
+        return values
 
     combined_data = []
     for name, ref in ref_data.items():
         if len(ref) != 0 and name in head_data and name in BENCH_NAMES:
             head = head_data[name]
             if len(ref) == len(head):
-                combined_data.append((name, *calculate_diffs(ref, head)))
-    combined_data.sort(key=itemgetter(2))
-    return combined_data
+                combined_data.append((name, calculate_diffs(ref, head)))
+    combined_data.sort(key=lambda a: np.median(a[1]))
+    return dict(combined_data)
 
 class BenchmarkData:
     def __init__(self, filename: Path):
@@ -99,45 +91,35 @@ class BenchmarkData:
 
         return data
 
-    
-    def get_diff(self, other):
-        me = self.get_timing_data()
-        compare_to = other.get_timing_data()
-        combined = get_combined_data(me, compare_to)
 
-def plot_diff_pair(ax, data):
+def plot_diff_pair(ax, bench_name, data):
     if not len(data):
         return []
 
     all_data = []
 
-    medians_all = []
-    for config in data:
-        medians = []
-        for i, (name, values, median) in enumerate(config):
-            medians.append(median)
-        print(f"{np.median(medians):.2f}")
-        medians_all.append(medians)
+    values_all = []
+    for config in data:   
+        values_all.append(config[bench_name])
 
     bplot = ax.boxplot(
-        medians_all,
+        values_all,
         vert=True,
-        # showmeans=True,
+        #showmeans=True,
         showfliers=False,
         patch_artist=True,
-        tick_labels=[x[0] for x in COMPARISONS_ALL]
     )
 
+    # Set color
     len_plots = len(bplot['boxes'])
     for i in range(len_plots):
-        ax.plot(i+1, geo_mean(medians_all[i]),marker='o', color='green', markersize=4, label='Geometric Mean')
         if i % 2:
             bplot['boxes'][i].set_facecolor('lightgrey')
         else:
             bplot['boxes'][i].set_facecolor('white')
+    
 
     return all_data
-    
 
 
 def formatter(val, pos):
@@ -148,27 +130,38 @@ def plot_diff(
     combined_data: list,
     output_filename: PathLike,
 ) -> None:
-    _, axs = plt.subplots(layout="constrained")
-    plot_diff_pair(axs, combined_data)
-    axs.yaxis.set_major_formatter(formatter)
-    axs.grid()
-    # title = axs.set_title("\% Speedup normalized to cpy_3.14.2_noopt baseline")
+    fig, axs = plt.subplots(len(BENCH_NAMES)//6 + 1, 6, sharex=False, sharey=False, layout="constrained")
+    og_axes = axs
+    axs = axs.flatten()
+    for i, bench_name in enumerate(BENCH_NAMES):
+        plot_diff_pair(axs[i], bench_name, combined_data)
+        axs[i].yaxis.set_major_formatter(formatter)
+        axs[i].grid()
+        axs[i].set_xlabel(bench_name)
+        axs[i].tick_params(labelbottom=False)
+    all_labels = [x[0] for x in COMPARISONS_ALL]
+    plt.xticks(np.arange(1, len(all_labels) + 1), all_labels, rotation=90)
 
+    for x in range(i+1, len(axs)-1):
+        fig.delaxes(axs[x])
+    fig.set_size_inches(8.5 * 2, 11 * 2)
+
+
+    fig.supylabel("Relative performance")
+    fig.supxlabel("Individual benchmarks in pyperformance for CPython 3.15a configurations versus their respective baselines.")
     output_filename = Path(output_filename)
-    plt.xticks(rotation=45, ha="right")
+
     # plt.gcf().subplots_adjust(bottom=0.4)
-    axs.set_ylabel(r"Effect on pyperformance")
-    axs.set_xlabel(f"System configurations")
-    plt.axhline(1.0)
-    plt.savefig(output_filename, dpi=500)
+
+    # plt.axhline(1.0)
+    plt.savefig(output_filename, dpi=1000)
 
     plt.close("all")
 
 if __name__ == "__main__":
-    # base = BenchmarkData(Path(sys.argv[1]))
-    # changed = BenchmarkData(Path(sys.argv[2]))
     everything = []
     for name, base, changed in COMPARISONS_ALL:
+        print(name)
         combined = get_combined_data(BenchmarkData(Path(base)).get_timing_data(), BenchmarkData(Path(changed)).get_timing_data())
-        everything.append(combined)
-    plot_diff(everything, "fp_perf_over_baseline.png")
+        everything.append(combined)       
+    plot_diff(everything, "fp_perf_over_baseline_indiv.pdf") 
