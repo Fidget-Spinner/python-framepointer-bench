@@ -181,4 +181,4 @@ if __name__ == "__main__":
         print(name)
         combined = get_combined_data(BenchmarkData(Path(base)).get_timing_data(), BenchmarkData(Path(changed)).get_timing_data())
         everything.append(combined)
-    plot_diff(everything, "fp_perf_over_baseline.svg")
+    plot_diff(everything, "pep-0831_perf_over_baseline.svg")
